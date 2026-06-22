@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.resolutionselector.ResolutionSelector;
+import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -59,8 +60,26 @@ class ImageCaptureProxyApi extends PigeonApiImageCapture {
           break;
       }
     }
+    builder.setResolutionSelector(createHighResolutionImageCaptureSelector(resolutionSelector));
+    return builder.build();
+  }
+
+  @NonNull
+  private ResolutionSelector createHighResolutionImageCaptureSelector(
+      @Nullable ResolutionSelector resolutionSelector) {
+    final ResolutionSelector.Builder builder = new ResolutionSelector.Builder();
+    builder.setAllowedResolutionMode(
+        ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE);
     if (resolutionSelector != null) {
-      builder.setResolutionSelector(resolutionSelector);
+      builder.setAspectRatioStrategy(resolutionSelector.getAspectRatioStrategy());
+      if (resolutionSelector.getResolutionStrategy() != null) {
+        builder.setResolutionStrategy(resolutionSelector.getResolutionStrategy());
+      }
+      if (resolutionSelector.getResolutionFilter() != null) {
+        builder.setResolutionFilter(resolutionSelector.getResolutionFilter());
+      }
+    } else {
+      builder.setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY);
     }
     return builder.build();
   }

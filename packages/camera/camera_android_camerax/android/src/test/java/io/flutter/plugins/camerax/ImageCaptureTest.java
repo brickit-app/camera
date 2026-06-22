@@ -17,7 +17,9 @@ import android.view.Surface;
 import androidx.annotation.NonNull;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
+import androidx.camera.core.resolutionselector.ResolutionFilter;
 import androidx.camera.core.resolutionselector.ResolutionSelector;
+import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Executor;
@@ -35,13 +37,24 @@ public class ImageCaptureTest {
   public void pigeon_defaultConstructor_createsImageCaptureWithCorrectConfiguration() {
     final PigeonApiImageCapture api = new TestProxyApiRegistrar().getPigeonApiImageCapture();
 
-    final ResolutionSelector mockResolutionSelector = new ResolutionSelector.Builder().build();
+    final ResolutionFilter mockResolutionFilter = mock(ResolutionFilter.class);
+    final ResolutionStrategy mockResolutionStrategy = mock(ResolutionStrategy.class);
+    final ResolutionSelector mockResolutionSelector =
+        new ResolutionSelector.Builder()
+            .setResolutionFilter(mockResolutionFilter)
+            .setResolutionStrategy(mockResolutionStrategy)
+            .build();
     final long targetResolution = Surface.ROTATION_0;
     final ImageCapture imageCapture =
         api.pigeon_defaultConstructor(
             mockResolutionSelector, targetResolution, CameraXFlashMode.OFF);
 
-    assertEquals(imageCapture.getResolutionSelector(), mockResolutionSelector);
+    assertEquals(
+        imageCapture.getResolutionSelector().getAllowedResolutionMode(),
+        ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE);
+    assertEquals(imageCapture.getResolutionSelector().getResolutionFilter(), mockResolutionFilter);
+    assertEquals(
+        imageCapture.getResolutionSelector().getResolutionStrategy(), mockResolutionStrategy);
     assertEquals(imageCapture.getTargetRotation(), Surface.ROTATION_0);
     assertEquals(imageCapture.getFlashMode(), ImageCapture.FLASH_MODE_OFF);
   }
