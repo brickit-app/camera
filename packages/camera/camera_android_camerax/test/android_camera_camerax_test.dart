@@ -743,17 +743,7 @@ void main() {
           ResolutionStrategyFallbackRule.closestLowerThenHigher,
         );
 
-        final CameraSize? imageAnalysisSize = await camera
-            .imageAnalysis!
-            .resolutionSelector!
-            .resolutionStrategy!
-            .getBoundSize();
-        expect(imageAnalysisSize?.width, equals(expectedBoundSize.width));
-        expect(imageAnalysisSize?.height, equals(expectedBoundSize.height));
-        expect(
-          await camera.imageAnalysis!.resolutionSelector!.resolutionStrategy!.getFallbackRule(),
-          ResolutionStrategyFallbackRule.closestLowerThenHigher,
-        );
+        expect(camera.imageAnalysis, isNull);
       }
 
       // Test max case.
@@ -767,10 +757,7 @@ void main() {
         camera.imageCapture!.resolutionSelector!.resolutionStrategy,
         equals(ResolutionStrategy.highestAvailableStrategy),
       );
-      expect(
-        camera.imageAnalysis!.resolutionSelector!.resolutionStrategy,
-        equals(ResolutionStrategy.highestAvailableStrategy),
-      );
+      expect(camera.imageAnalysis, isNull);
 
       // Test null case.
       final int flutterSurfaceTextureId = await camera.createCamera(testCameraDescription, null);
@@ -778,7 +765,7 @@ void main() {
 
       expect(camera.preview!.resolutionSelector, isNull);
       expect(camera.imageCapture!.resolutionSelector, isNull);
-      expect(camera.imageAnalysis!.resolutionSelector, isNull);
+      expect(camera.imageAnalysis, isNull);
     },
   );
 
@@ -846,7 +833,7 @@ void main() {
         if (expectedPreferredResolution == null) {
           expect(camera.preview!.resolutionSelector!.resolutionFilter, isNull);
           expect(camera.imageCapture!.resolutionSelector!.resolutionFilter, isNull);
-          expect(camera.imageAnalysis!.resolutionSelector!.resolutionFilter, isNull);
+          expect(camera.imageAnalysis, isNull);
           continue;
         }
 
@@ -861,13 +848,7 @@ void main() {
         expect(imageCaptureSize?.width, equals(expectedPreferredResolution.width));
         expect(imageCaptureSize?.height, equals(expectedPreferredResolution.height));
 
-        final CameraSize? imageAnalysisSize = await camera
-            .imageAnalysis!
-            .resolutionSelector!
-            .resolutionStrategy!
-            .getBoundSize();
-        expect(imageAnalysisSize?.width, equals(expectedPreferredResolution.width));
-        expect(imageAnalysisSize?.height, equals(expectedPreferredResolution.height));
+        expect(camera.imageAnalysis, isNull);
       }
 
       // Test null case.
@@ -876,7 +857,7 @@ void main() {
 
       expect(camera.preview!.resolutionSelector, isNull);
       expect(camera.imageCapture!.resolutionSelector, isNull);
-      expect(camera.imageAnalysis!.resolutionSelector, isNull);
+      expect(camera.imageAnalysis, isNull);
     },
   );
 
@@ -943,10 +924,7 @@ void main() {
             await camera.imageCapture!.resolutionSelector!.getAspectRatioStrategy(),
             equals(AspectRatioStrategy.ratio_4_3FallbackAutoStrategy),
           );
-          expect(
-            await camera.imageAnalysis!.resolutionSelector!.getAspectRatioStrategy(),
-            equals(AspectRatioStrategy.ratio_4_3FallbackAutoStrategy),
-          );
+          expect(camera.imageAnalysis, isNull);
           continue;
         }
 
@@ -956,20 +934,15 @@ void main() {
             .imageCapture!
             .resolutionSelector!
             .getAspectRatioStrategy();
-        final AspectRatioStrategy imageAnalysisStrategy = await camera
-            .imageCapture!
-            .resolutionSelector!
-            .getAspectRatioStrategy();
 
         // Check aspect ratio.
         expect(await previewStrategy.getPreferredAspectRatio(), equals(expectedAspectRatio));
         expect(await imageCaptureStrategy.getPreferredAspectRatio(), equals(expectedAspectRatio));
-        expect(await imageAnalysisStrategy.getPreferredAspectRatio(), equals(expectedAspectRatio));
+        expect(camera.imageAnalysis, isNull);
 
         // Check fallback rule.
         expect(await previewStrategy.getFallbackRule(), equals(expectedFallbackRule));
         expect(await imageCaptureStrategy.getFallbackRule(), equals(expectedFallbackRule));
-        expect(await imageAnalysisStrategy.getFallbackRule(), equals(expectedFallbackRule));
       }
 
       // Test null case.
@@ -978,12 +951,12 @@ void main() {
 
       expect(camera.preview!.resolutionSelector, isNull);
       expect(camera.imageCapture!.resolutionSelector, isNull);
-      expect(camera.imageAnalysis!.resolutionSelector, isNull);
+      expect(camera.imageAnalysis, isNull);
     },
   );
 
   test(
-    'createCamera and initializeCamera binds Preview, ImageCapture, and ImageAnalysis use cases to ProcessCameraProvider instance',
+    'createCamera and initializeCamera binds Preview and ImageCapture use cases to ProcessCameraProvider instance',
     () async {
       final camera = AndroidCameraCameraX();
       const CameraLensDirection testLensDirection = CameraLensDirection.back;
@@ -1126,7 +1099,6 @@ void main() {
         mockProcessCameraProvider.bindToLifecycle(mockBackCameraSelector, <UseCase>[
           mockPreview,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       ).thenAnswer((_) async => mockCamera);
       when(mockCamera.getCameraInfo()).thenAnswer((_) async => mockCameraInfo);
@@ -1153,9 +1125,9 @@ void main() {
         camera.processCameraProvider!.bindToLifecycle(camera.cameraSelector!, <UseCase>[
           mockPreview,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       );
+      expect(camera.imageAnalysis, isNull);
 
       // Verify the camera's CameraInfo instance got updated.
       expect(camera.cameraInfo, equals(mockCameraInfo));
@@ -1324,6 +1296,7 @@ void main() {
     CameraIntegerRange? targetPreviewFpsRange;
     CameraIntegerRange? targetVideoCaptureFpsRange;
     CameraIntegerRange? targetImageAnalysisFpsRange;
+    final mockImageAnalysis = MockImageAnalysis();
 
     setUpOverridesForTestingUseCaseConfiguration(
       mockProcessCameraProvider,
@@ -1352,7 +1325,7 @@ void main() {
             int? targetRotation,
           }) {
             targetImageAnalysisFpsRange = targetFpsRange;
-            return MockImageAnalysis();
+            return mockImageAnalysis;
           },
     );
 
@@ -1366,8 +1339,17 @@ void main() {
     expect(targetPreviewFpsRange?.upper, fastTargetFps);
     expect(targetVideoCaptureFpsRange?.lower, fastTargetFps);
     expect(targetVideoCaptureFpsRange?.upper, fastTargetFps);
+    expect(targetImageAnalysisFpsRange, isNull);
+
+    final StreamSubscription<CameraImageData> imageStreamSubscription = camera
+        .onStreamedFrameAvailable(testCameraId)
+        .listen((CameraImageData data) {});
+
+    await untilCalled(mockImageAnalysis.setAnalyzer(any));
     expect(targetImageAnalysisFpsRange?.lower, fastTargetFps);
     expect(targetImageAnalysisFpsRange?.upper, fastTargetFps);
+
+    await imageStreamSubscription.cancel();
   });
 
   test('createCamera properly selects specific back camera by specifying a CameraInfo', () async {
@@ -1676,7 +1658,6 @@ void main() {
   });
 
   test('initializeCamera sets image format of ImageAnalysis use case as expected', () async {
-    final camera = AndroidCameraCameraX();
     const CameraLensDirection testLensDirection = CameraLensDirection.back;
     const testSensorOrientation = 90;
     const testCameraDescription = CameraDescription(
@@ -1695,7 +1676,6 @@ void main() {
     final mockLiveCameraState = MockLiveCameraState();
     final mockPreview = MockPreview();
     final testResolutionInfo = ResolutionInfo.pigeon_detached(resolution: MockCameraSize());
-    final mockImageAnalysis = MockImageAnalysis();
 
     // Configure mocks for camera initialization.
     when(mockProcessCameraProvider.bindToLifecycle(any, any)).thenAnswer((_) async => mockCamera);
@@ -1703,9 +1683,12 @@ void main() {
     when(mockCameraInfo.getCameraState()).thenAnswer((_) async => mockLiveCameraState);
     when(mockPreview.getResolutionInfo()).thenAnswer((_) async => testResolutionInfo);
     when(mockPreview.setSurfaceProvider(any)).thenAnswer((_) async => testSurfaceTextureId);
-    camera.processCameraProvider = mockProcessCameraProvider;
 
     for (final ImageFormatGroup imageFormatGroup in ImageFormatGroup.values) {
+      final camera = AndroidCameraCameraX();
+      final mockImageAnalysis = MockImageAnalysis();
+      camera.processCameraProvider = mockProcessCameraProvider;
+
       // Get CameraX image format constant for imageFormatGroup.
       final int? cameraXImageFormat = switch (imageFormatGroup) {
         ImageFormatGroup.yuv420 => AndroidCameraCameraX.imageAnalysisOutputImageFormatYuv420_888,
@@ -1742,8 +1725,18 @@ void main() {
       );
       await camera.initializeCamera(testSurfaceTextureId, imageFormatGroup: imageFormatGroup);
 
-      // Test image format group is set as expected.
+      expect(imageAnalysisOutputImageFormat, isNull);
+
+      final StreamSubscription<CameraImageData> imageStreamSubscription = camera
+          .onStreamedFrameAvailable(testSurfaceTextureId)
+          .listen((CameraImageData data) {});
+
+      await untilCalled(mockImageAnalysis.setAnalyzer(any));
+
+      // Test image format group is set as expected when ImageAnalysis is lazily created.
       expect(imageAnalysisOutputImageFormat, cameraXImageFormat);
+
+      await imageStreamSubscription.cancel();
     }
   });
 
@@ -1877,7 +1870,6 @@ void main() {
       mockProcessCameraProvider.bindToLifecycle(mockBackCameraSelector, <UseCase>[
         mockPreview,
         mockImageCapture,
-        mockImageAnalysis,
       ]),
     ).thenAnswer((_) async => mockCamera);
     when(mockCamera.getCameraInfo()).thenAnswer((_) async => mockCameraInfo);
@@ -2914,7 +2906,6 @@ void main() {
           mockVideoCapture,
           mockPreview,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       ).thenAnswer((_) async => newMockCamera);
       when(newMockCamera.getCameraInfo()).thenAnswer((_) async => mockCameraInfo);
@@ -2944,7 +2935,6 @@ void main() {
           mockVideoCapture,
           mockPreview,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       ).called(1);
       expect(camera.camera, equals(newMockCamera));
@@ -2969,7 +2959,6 @@ void main() {
           mockVideoCapture,
           mockPreview,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       ).called(1);
     });
@@ -3150,7 +3139,6 @@ void main() {
         camera.processCameraProvider?.bindToLifecycle(mockFrontCameraSelector, <UseCase>[
           mockVideoCapture,
           mockImageCapture,
-          mockImageAnalysis,
         ]),
       ).called(1);
     });

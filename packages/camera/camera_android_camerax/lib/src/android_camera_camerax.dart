@@ -282,6 +282,9 @@ class AndroidCameraCameraX extends CameraPlatform {
   /// The configured format of outputted images from image streaming.
   int? _imageAnalysisOutputImageFormat;
 
+  /// The currently locked capture orientation rotation, if capture orientation is locked.
+  int? _lockedCaptureOrientationRotation;
+
   /// Returns list of all available cameras and their descriptions.
   @override
   Future<List<CameraDescription>> availableCameras() async {
@@ -431,9 +434,9 @@ class AndroidCameraCameraX extends CameraPlatform {
   /// Initializes the camera with ID [cameraId] on the device.
   ///
   /// Specifically, this method:
-  ///  * Configures the [ImageAnalysis] instance according to the specified
-  ///   [imageFormatGroup]
-  ///  * Binds the configured [Preview], [ImageCapture], and [ImageAnalysis]
+  ///  * Saves the ImageAnalysis output image format specified by
+  ///   [imageFormatGroup] for image streaming.
+  ///  * Binds the configured [Preview] and [ImageCapture]
   ///    instances to the [ProcessCameraProvider] instance.
   ///  * Retrieves information about the camera and sends a [CameraInitializedEvent].
   ///
@@ -453,15 +456,11 @@ class AndroidCameraCameraX extends CameraPlatform {
         "Camera not found. Please call the 'create' method before calling 'initialize'",
       );
     }
-    // Configure ImageAnalysis instance.
-    // Defaults to YUV_420_888 image format.
+    // Save the ImageAnalysis output format for image streaming. The ImageAnalysis
+    // use case is created lazily when image streaming starts, so it does not
+    // participate in the initial CameraX stream combination for still capture.
     _imageAnalysisOutputImageFormat = _imageAnalysisOutputFormatFromImageFormatGroup(
       imageFormatGroup,
-    );
-    imageAnalysis = ImageAnalysis(
-      resolutionSelector: _presetResolutionSelector,
-      targetFpsRange: _targetFpsRange,
-      outputImageFormat: _imageAnalysisOutputImageFormat,
     );
 
     // Bind configured UseCases to ProcessCameraProvider instance & mark Preview
@@ -470,7 +469,6 @@ class AndroidCameraCameraX extends CameraPlatform {
     camera = await processCameraProvider!.bindToLifecycle(cameraSelector!, <UseCase>[
       preview!,
       imageCapture!,
-      imageAnalysis!,
     ]);
     await _updateCameraInfoAndLiveCameraState(_flutterSurfaceTextureId);
     previewInitiallyBound = true;
@@ -561,10 +559,11 @@ class AndroidCameraCameraX extends CameraPlatform {
 
     // Get target rotation based on locked orientation.
     final int targetLockedRotation = _getRotationConstantFromDeviceOrientation(orientation);
+    _lockedCaptureOrientationRotation = targetLockedRotation;
 
     // Update UseCases to use target device orientation.
     await imageCapture!.setTargetRotation(targetLockedRotation);
-    await imageAnalysis!.setTargetRotation(targetLockedRotation);
+    await imageAnalysis?.setTargetRotation(targetLockedRotation);
     await videoCapture!.setTargetRotation(targetLockedRotation);
   }
 
@@ -573,6 +572,7 @@ class AndroidCameraCameraX extends CameraPlatform {
   Future<void> unlockCaptureOrientation(int cameraId) async {
     // Flag that default rotation should be set for UseCases as needed.
     captureOrientationLocked = false;
+    _lockedCaptureOrientationRotation = null;
   }
 
   /// Sets the exposure point for automatically determining the exposure values for
@@ -1106,7 +1106,9 @@ class AndroidCameraCameraX extends CameraPlatform {
       // For potential performance improvements, unbind imageAnalysis if not in use.
       // See https://developer.android.com/media/camera/camerax/architecture#combine-use-cases
       // for details.
-      await _unbindUseCaseFromLifecycle(imageAnalysis!);
+      if (imageAnalysis != null) {
+        await _unbindUseCaseFromLifecycle(imageAnalysis!);
+      }
     }
 
     await _bindUseCaseToLifecycle(videoCapture!, options.cameraId);
@@ -1259,6 +1261,13 @@ class AndroidCameraCameraX extends CameraPlatform {
 
   /// Configures the [imageAnalysis] instance for image streaming.
   Future<void> _configureImageAnalysis(int cameraId) async {
+    imageAnalysis ??= ImageAnalysis(
+      resolutionSelector: _presetResolutionSelector,
+      targetFpsRange: _targetFpsRange,
+      targetRotation: _lockedCaptureOrientationRotation,
+      outputImageFormat: _imageAnalysisOutputImageFormat,
+    );
+
     await _bindUseCaseToLifecycle(imageAnalysis!, cameraId);
 
     // Set target rotation to default CameraX rotation only if capture
